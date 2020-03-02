@@ -1,0 +1,185 @@
+package oblig1parser;
+import java_cup.runtime.*;
+import syntaxtree.*;
+
+/* Terminals */
+
+terminal                PROGRAM, BEGIN, END;
+terminal                VAR, COMMA, COLON, SEMICOLON;
+terminal                PROC, LPAR, RPAR, LBRAC, RBRAC;
+terminal                IN, NOT, NEW, STRUCT;
+terminal                REF, DEREF, DOT;
+terminal                AND, OR;
+terminal                LESSTHAN, LESSOREQUAL;
+terminal                MORETHAN, MOREOREQUAL;
+terminal                EQUAL, UNEQUAL;
+terminal                PLUS, MIN, MUL, DIV, EXP;
+terminal                ASSIGN;
+terminal                INT, FLOAT, BOOL, STRING;
+terminal                IF, FI, ELSE, THEN, WHILE, DO, OD, RETURN;
+terminal boolean        TRUE, FALSE;
+terminal null           NULL;
+terminal Integer        INTLIT;
+terminal Double         FLOATLIT;
+terminal String         STRINGLIT;
+terminal String         NAME;
+
+/* Non terminals */
+
+nonterminal Program             program;
+nonterminal List<Decl>          decls;
+nonterminal Decl                decl;
+nonterminal Decl                var_decl;
+nonterminal Decl                proc_decl;
+nonterminal List<PafiDecl>      paramfield_decls;
+nonterminal Exp                 types; //Unsure what class here, PafiDecl?
+nonterminal Decl                rec_decl;
+nonterminal List<Stmt>          stmt_list;
+nonterminal ParamfieldDecl      paramfield_decl;
+nonterminal Exp                 exp;
+nonterminal RefVar              ref_var;
+nonterminal DerefVar            deref_var;
+nonterminal Var                 var;
+nonterminal Stmt                stmt;
+nonterminal Stmt                if_stmt;
+nonterminal List<Lis<Stmt>>     several_lists;
+nonterminal Stmt                while_stmt;
+nonterminal Stmt                return_stmt;
+nonterminal Stmt                call_stmt;
+nonterminal Stmt                assign_stmt;
+nonterminal Type                type;
+nonterminal Exp                 bool_exp;
+nonterminal Exp                 arit_exp;
+nonterminal Exp                 literal;
+nonterminal Exp                 rel_exp;
+
+/* Under revision*/
+precedence left AND;
+precedence left OR;
+precedence right NOT;
+precedence nonassoc LESSTHAN, LESSOREQUAL, MORETHAN, MOREOREQUAL, EQUAL, UNEQUAL;
+precedence left PLUS, MIN;
+precedence left MUL, DIV;
+precedence right EXP;
+precedence left DOT;
+precedence left RETURN;
+
+/* Grammar spec */
+
+program ::= PROGRAM NAME:n BEGIN decls:ds END 
+    {: RESULT = new Program(n, ds); :}
+    ;
+decls ::= decls:ds SEMICOLON decl:d {: ds.add(d); RESULT = ds; :}
+    | decl:d {: RESULT = d;:} //unsure about recursion here... make list of one?
+    | {: RESULT = new LinkedList<Decl>(); :}
+    ;
+decl ::= var_decl:vd {: RESULT = vd; :}
+    | proc_decl:pd {: RESULT = pd; :}
+    | rec_decl:rd {: RESULT = rd; :}
+    ;
+var_decl ::= VAR NAME:n COLON type:t {: RESULT = new VarDecl(n,t); :}
+    ;
+proc_decl ::= PROC NAME:n LPAR paramsfield_decls:pfds RPAR types:t
+                BEGIN decls:ds IN stmt_list:sl END
+    {: RESULT = new ProcDecl(n, p, t, pd, sl):}
+    ;
+paramfield_decls ::= paramfield_decls:pfds COLON paramfield_decl:pfd 
+    {: pfds.add(pfd); RESULT = pfds; :}
+    | paramfield_decl:pfd {: RESULT = pfd; :} // Change to list
+    | {: RESULT = new LinkedList<ParamFieldDecl>(); :}
+    ;
+types ::= COLON type:t {: RESULT = t; :}
+    | {: RETURN = null; :} // unsure if okay
+    ;
+stmt_list ::= stmts:stmts SEMINCOLON stmt:s {: stmts.add(s); RESULT = stmts; :}
+    | stmt:s {: RESULT = s; :} // make list
+    | {: RESULT = new LinkedList<Stmt>(); :}
+    ;
+rec_decl ::= STRUCT NAME:n LBRAC paramfield_decls:p RBRAC {: RESULT = new RecDecl(n,p); :}
+    ;
+paramfield_decl ::= NAME:n COLON type:t {: RESULT = new ParamfieldDecl(n,t) :}
+    ;
+/* TODO look over*/
+exp ::= bool_exp:e {: RESULT = e; :}
+    | rel_exp:e {: RESULT = e; :}
+    | arit_exp:e {: RESULT = e; :}
+    | literal:l {: RESULT = e; :}
+    | call_stmt:cs {: RESULT = new CallExp(cs); :}
+    | NEW NAME:n {: RESULT = new NewExp(n); :}
+    | var:v {: RESULT = new VarExp(v); :}
+    | ref_var:rv {: RESULT = new VarExp(rv); :}
+    | deref_var:dv {: RESULT = new VarExp(dv); :}
+    | LPAR exp:e RPAR {: RESULT = e; :}
+    ;
+ref_var ::= REF LPAR var:v RPAR {: RESULT = new RefVar(v); :} 
+    ;
+deref_var ::= DEREF LPAR var:v RPAR {: RESULT = new DerefVar(v); :}
+    | DEREF LPAR deref_var:dv RPAR {: RESULT = new DerefVar(dv); :}
+    ;
+var ::= NAME:n {: RESULT = new Var(n); :}
+    | exp:e DOT NAME:n {: RESULT = new Var(e,n); :}
+    ;
+// TODO
+literal ::= FLOATLIT:l {: RESULT = new FloatLiteral(l); :}
+    | INTLIT:l {: RESULT = new IntLiteral(l); :}
+    | STRINGLIT:l {: RESULT = new StringLiteral(l); :}
+    | TRUE:l {: RESULT = new BoolLiteral(l); :}
+    | FALSE:l {: RESULT = new BoolLiteral(l); :}
+    | NULL:l {: RESULT = new NullLiteral(); :}
+    ;
+stmt ::= assign_stmt:s {: RESULT = s; :}
+    | if_stmt:s {: RESULT = s; :}
+    | while_stmt:s {: RESULT = s; :}
+    | return_stmt:s {: RESULT = s; :}
+    | call_stmt:s {: RESULT = s; :}
+    ;
+assign_stmt ::= var:v ASSIGN exp:e {: RESULT = new AssignStmt(v,e); :}
+    | deref_var:dv ASSIGN exp:e {: RESULT = new AssignStmt(dv,e):}
+    ;
+if_stmt ::= IF exp:e THEN several_lists:sl ELSE several_lists:esl FI
+    {: Result = new IfStmt(e,sl,esl); :}
+    | IF exp:e THEN several_lists:sl FI {: RESULT = new IfStmt(e,sl):}
+    ;
+several_lists ::= several_lists:sl stmt_list:s {:sl.add(s):}
+    | {: RESULT = new LinkedList<LinkedList<Stmt>>(); :}
+    ;
+while_stmt ::= WHILE exp:e DO several_lists:sl OD {: RESULT = new WhileStmt(e, sl); :}
+    ;
+return_stmt ::= RETURN exp:e {: RESULT = new RetStmt(e); :}
+    | RETURN {: RESULT new RetStmt(); :}
+    ;
+//ret ::= exp:e {: RESULT = e:}
+//    | {: RESULT = new NullLiteral(); :}
+//    ;
+call_stmt ::= NAME:n LPAR exp_optional RPAR {: RESULT = new CallStmt(n, exp_optional); :}
+    ;
+opt_exps ::= opt_exps:oe exp:e {: oe.add(e); RESULT = oe; :}
+    | exp:e {:RESULT = e:}
+    | {: RESULT = new LinkedList<Exp>(); :} // UNSURE... maybe return null?
+    ;
+// TODO
+type ::= FLOAT
+    | INT:t {: RESULT = new IntLiteral(t); :}
+    | STRING:t {: RESULT = new StringLiteral(t); :}
+    | BOOL:t {: RESULT = new BoolLiteral(t); :}
+    | NAME:n {: RESULT = new NameLiteral(n);:}
+    | REF LPAR type:t RPAR {: RESULT = new RefType(t); :}
+    ;
+bool_exp ::=  exp:e1 AND exp:e2 {: RESULT = new AndExp(e1,e2); :}
+    | exp:e1 OR exp:e2 {: RESULT = new OrExp(e1,e2); :}
+    | NOT exp:e {: RESULT = new NotExp(e); :}
+    ;
+// make a class for each?
+rel_exp ::= exp:e1 LESSTHAN exp:e2 {: RESULT = new RelExp("<", e1, e2); :}
+    | exp:e1 MORETHAN exp:e2 {: RESULT = new RelExp(">",e1,e2); :}
+    | exp:e1 LESSOREQUAL exp:e2 {: RESULT = new RelExp("<=",e1,e2); :}
+    | exp:e1 MOREOREQUAL exp:e2 {: RESULT = new RelExp(">=",e1,e2); :}
+    | exp:e1 EQUAL exp:e2 {: RESULT = new RelExp("==",e1,e2); :}
+    | exp:e1 UNEQUAL exp:e2 {: RESULT = new RelExp("!=",e1,e2); :}
+    ;
+arit_exp ::=  exp:e1 PLUS exp:e2 {: RESULT = new AddExp(e1,e2); :}
+    | exp:e1 MIN exp:e2 {: RESULT = new SubExp(e1,e2);:} //change MIN to SUB
+    | exp:e1 MUL exp:e2 {: RESULT = new MulExp(e1,e2); :}
+    | exp:e1 DIV exp:e2 {: RESULT = new DivExp(e1,e2); :}
+    | exp:e1 EXP exp:e2 {: RESULT = new ExpExp(e1,e2); :}
+    ;

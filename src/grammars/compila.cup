@@ -1,0 +1,198 @@
+package parser;   
+import java_cup.runtime.*;
+import syntaxtree.*;
+import java.util.*;
+
+parser code {:
+
+:};
+
+/* Terminals */
+terminal                        PROGRAM,BEGIN,END;
+terminal                        VAR,COLON,SEMICOLON;
+terminal						COMMA,PROC,LPAR,RPAR;
+terminal                        LBRAC,RBRAC,IN,NOT,N;
+terminal 						STRUCT,REF,DEREF,DOT,AND;
+terminal						OR,LESSTHAN,LESSOREQUAL,MORETHAN,MOREOREQUAL;
+terminal 						EQUAL,UNEQUAL,PLUS,MIN,MUL,DIV,EXP;
+terminal						NULL,ASSIGN,IF,FI,THEN,WHILE,DO,OD;
+terminal 						NEW,PROCEDURE;
+terminal						LOG_OP,REL_OP,ARITH_OP;
+terminal						LITERAL;
+terminal						EQUALS,RETURN,FLOAT,INT,STRING,BOOL;
+terminal						ELSE;
+
+
+terminal boolean 				TRUE,FALSE;
+terminal Double 				FLOAT_LITERAL;
+terminal Integer				INT_LITERAL;
+terminal String					STRING_LITERAL;
+
+
+
+/* NEW TERMINALS */
+terminal String						NAME;
+
+
+
+/* Non terminals */
+non terminal Program            program;
+non terminal Decl				decl;
+non terminal LinkedList<Decl>			optional_decl;
+non terminal Var_decl			var_decl;
+non terminal Proc_decl			proc_decl;
+non terminal Struct			rec_decl;
+non terminal Exp				exp;
+non terminal Param				param;
+non terminal LinkedList<Param>		optional_params;
+non terminal Type               type;
+non terminal LinkedList<Exp>           exp_list;
+non terminal LinkedList<Stmt>          stmt_list;
+non terminal Call_stmt			call_stmt;
+non terminal Return_stmt		return_stmt;
+non terminal While_stmt			while_stmt;
+non terminal LinkedList<Stmt>			several_stmt;
+non terminal LinkedList<Stmt>			optional_else;
+non terminal Stmt				stmt;
+non terminal if_stmt;
+non terminal assign_stmt;
+non terminal Exp                deref_var;
+non terminal Exp				literal;
+
+non terminal Exp				var;
+non terminal Exp				ref_var;
+non terminal Exp				log_exp;
+non terminal Exp				bool_exp;
+non terminal Exp				rel_exp;
+non terminal Exp				arith_exp;
+
+precedence left OR;
+precedence left AND;
+precedence right NOT;
+precedence nonassoc LESSTHAN, LESSOREQUAL, MORETHAN, MOREOREQUAL, EQUAL, UNEQUAL;
+precedence left PLUS,MIN;
+precedence left MUL, DIV;
+precedence right EXP;
+precedence left DOT;
+
+/* The grammar */
+
+program ::= PROGRAM NAME:n BEGIN optional_decl:dl END 
+    {: RESULT = new Program(n, dl); :};
+
+
+
+type ::= FLOAT:e {:RESULT = new Type(e);:}
+	| INT:e  {:RESULT = new Type(e);:}
+	| STRING:e  {:RESULT = new Type(e);:}
+	| BOOL:e  {:RESULT = new Type(e);:}
+	| NAME:e  {:RESULT = new Type(e);:}
+	| REF LPAR type:e RPAR  {:RESULT = new Type(e);:} ;
+
+exp_list ::= exp:s {:LinkedList<Exp> sl = new LinkedList<Exp>(); sl.add(s);:}
+	| exp:s SEMICOLON exp_list:a {:a.add(s); RESULT = a;:};
+
+call_stmt ::= NAME:n LPAR RPAR {:RESULT = new Call_stmt(n);:}
+	| NAME:n LPAR exp_list:el RPAR {:RESULT = new Call_stmt(n,el);:};
+
+return_stmt ::= RETURN
+	| RETURN exp:e {:RESULT = new Return_stmt(e);:};
+
+while_stmt ::= WHILE exp:e DO several_stmt:sl OD {:RESULT = new While_stmt(e,sl);:};
+
+optional_else ::= FI 
+	| ELSE FI
+	| ELSE several_stmt FI;
+
+several_stmt ::= stmt:a {:LinkedList<Stmt> sl = new LinkedList<Stmt>(); sl.add(a); RESULT = sl;:}
+	| stmt:a SEMICOLON several_stmt:b {:b.add(a); RESULT = b;:};
+
+if_stmt ::= IF exp:a THEN BEGIN several_stmt:b END optional_else:c {:RESULT = new If_stmt(a,b,c);:}; 
+
+assign_stmt ::= var:a EQUAL exp:b {:RESULT = new Assign_stmt(a,b);:}
+	| deref_var:a EQUAL exp:e {:RESULT = new Assign_stmt(a,e);:};
+
+stmt ::= assign_stmt | if_stmt | while_stmt | return_stmt | call_stmt;
+
+literal ::= FLOAT_LITERAL:a {:RESULT = new Literal(a);:}
+	| INT_LITERAL:a {:RESULT = new Literal(a);:}
+	| STRING_LITERAL:a {:RESULT = new Literal(a);:}
+	| TRUE:a {:RESULT = new Literal(a);:}
+	| FALSE:a {:RESULT = new Literal(a);:} 
+	;
+
+var ::= NAME:n {:RESULT = new Var_exp(n);:}
+	| exp:e DOT NAME:n {:RESULT = new Var_exp(e,n);:};
+
+deref_var ::= DEREF LPAR var:a RPAR {:RESULT = new Var_exp(a);:}
+	| DEREF LPAR deref_var:a RPAR {:RESULT = a;:};
+
+ref_var ::= REF LPAR var:a RPAR {:RESULT = new Var_exp(a);:};
+
+log_exp ::= exp:a AND exp:c {:RESULT = new Log_exp(a,"&&",c);:}
+	| exp:a OR exp:c {:RESULT = new Log_exp(a,"||",c);:}
+	| NOT exp:a {:RESULT = new Log_exp("true",a);:};
+
+
+
+rel_exp ::= exp:a LESSTHAN exp:c {:RESULT = new Rel_exp(a,"<",c);:}
+	| exp:a LESSOREQUAL exp:c {:RESULT = new Rel_exp(a,"<=",c);:}
+	| exp:a MORETHAN exp:c {:RESULT = new Rel_exp(a,">",c);:}
+	| exp:a MOREOREQUAL exp:c {:RESULT = new Rel_exp(a,"=>",c);:}
+	| exp:a EQUAL exp:c {:RESULT = new Rel_exp(a,"=",c);:}
+	| exp:a UNEQUAL exp:c {:RESULT = new Rel_exp(a,"!=",c);:};
+	
+arith_exp ::= exp:a PLUS exp:c {:RESULT = new Arith_exp(a,"+",c);:}
+	| exp:a MIN exp:c {:RESULT = new Arith_exp(a,"-",c);:}
+	| exp:a MUL exp:c {:RESULT = new Arith_exp(a,"*",c);:}
+	| exp:a DIV exp:c {:RESULT = new Arith_exp(a,"/",c);:}
+	| exp:a EXP exp:c {:RESULT = new Arith_exp(a,"^",c);:};
+
+exp ::= log_exp:a {:RESULT = a;:}
+	| bool_exp:a {:RESULT = a;:}
+	| rel_exp:a {:RESULT = a;:}
+	| arith_exp:a {:RESULT = a;:}
+	| literal:a {:RESULT = a;:}
+	| call_stmt:a {:RESULT = a;:}
+	| NEW NAME:n {:RESULT = new Name_exp(n);:}
+	| var:a {:RESULT = a;:}
+	| ref_var:a {:RESULT = a;:}
+	| deref_var:a {:RESULT = a;:};
+
+stmt_list ::= {:RESULT = new LinkedList<Stmt>();:}
+	| stmt:s {:LinkedList<Stmt> sl = new LinkedList<Stmt>(); sl.add(s);:}
+	| stmt:s SEMICOLON stmt_list:a {:a.add(s); RESULT = a;:};
+
+rec_decl ::= STRUCT NAME:n LBRAC optional_params:op RBRAC {:RESULT = new Struct(n,op);:};
+
+param ::= NAME:n COLON type:t {:RESULT = new Param(n,t);:};
+
+optional_params ::= {:RESULT = new LinkedList<Param>();:}
+	| param:p {:LinkedList<Param> pl = new LinkedList<Param>(); pl.add(p); :}
+	| param:p COMMA optional_params:d {:d.add(p); RESULT = d;:};
+
+proc_decl ::= PROCEDURE NAME:n LPAR optional_params:op RPAR COLON type:t BEGIN optional_decl:od IN stmt_list END {:RESULT = new Proc_decl(n,op,t,od);:}
+	| PROCEDURE NAME:n LPAR optional_params:op RPAR BEGIN optional_decl:od IN stmt_list END {:RESULT = new Proc_decl(n,op,od);:};
+
+
+var_decl ::= VAR NAME:n COLON type:t {:RESULT = new Var_decl(n,t);:}
+	| VAR NAME:n COLON type:t exp:e{:RESULT = new Var_decl(n,t,e);:}
+	| VAR NAME:n EQUALS exp:e {:RESULT = new Var_decl(n,e); :};
+
+decl ::= var_decl | proc_decl | rec_decl ;
+
+optional_decl ::= {: RESULT = new LinkedList<Decl>();:} 
+	| decl:d {:LinkedList<Decl> dl = new LinkedList<Decl>(); dl.add(d); RESULT = dl;:}
+	| decl:d SEMICOLON optional_decl:p {:p.add(d); RESULT = p; :};
+
+
+
+
+	
+
+
+
+
+
+
+
